@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNS & Domain Diagnostic Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            bg: '#0b0f19',
+                            card: '#131c31',
+                            border: '#1e293b',
+                            hover: '#1a2642'
+                        },
+                        primary: {
+                            DEFAULT: '#3b82f6',
+                            hover: '#2563eb',
+                            light: '#60a5fa'
+                        },
+                        accent: {
+                            cyan: '#06b6d4',
+                            purple: '#8b5cf6'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f8fafc;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .glass-panel {
+            background: rgba(19, 28, 49, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(30, 41, 59, 0.7);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#0b0f19] text-slate-100 selection:bg-blue-600 selection:text-white">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-[#0b0f19]/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="app.resetView()">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid fa-network-wired text-white text-lg"></i>
+                </div>
+                <div>
+                    <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">DNS & Domain Diagnostic</span>
+                    <span class="hidden sm:inline-block ml-2 px-2 py-0.5 text-xs font-semibold bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">Pro v2.5</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="app.openHistoryModal()" class="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-lg transition flex items-center space-x-2 border border-slate-800">
+                    <i class="fa-solid fa-history text-slate-400"></i>
+                    <span class="hidden md:inline">Recent Lookups</span>
+                </button>
+                <button onclick="app.loadExample()" class="px-3 py-2 text-sm font-medium bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 rounded-lg transition border border-blue-500/30 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-bolt text-xs"></i>
+                    <span>Try Example</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow flex flex-col">
+        
+        <!-- Hero Section (Visible when no active diagnostic) -->
+        <div id="heroSection" class="relative overflow-hidden py-16 lg:py-24 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center text-center">
+            <!-- Background glow effects -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none animate-pulse-glow"></div>
+            <div class="absolute top-1/4 right-1/4 w-[300px] h-[300px] bg-cyan-500/10 blur-[100px] rounded-full pointer-events-none"></div>
+
+            <div class="relative z-10 max-w-3xl mx-auto space-y-6">
+                <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/80 text-xs font-medium text-slate-300 shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Cloudflare DoH Secure Resolver Active</span>
+                </div>
+
+                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white">
+                    DNS & Domain <span class="bg-gradient-to-r from-blue-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent">Diagnostic Tool</span>
+                </h1>
+                
+                <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                    Analyze DNS records, domain configuration, mail servers, and security settings in seconds with robust DoH precision.
+                </p>
+
+                <!-- Search Form Card -->
+                <div class="max-w-2xl mx-auto mt-8 p-3 rounded-2xl glass-panel shadow-2xl border border-slate-700/60">
+                    <form id="diagnosticForm" onsubmit="app.handleSearch(event)" class="flex flex-col sm:flex-row gap-3">
+                        <div class="relative flex-grow">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-globe text-base"></i>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="domainInput" 
+                                placeholder="Enter a domain (e.g. example.com)" 
+                                class="w-full pl-11 pr-4 py-3.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base font-medium shadow-inner transition"
+                                autocomplete="off"
+                                spellcheck="false"
+                                required
+                            >
+                        </div>
+                        <button 
+                            type="submit" 
+                            class="px-7 py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/30 transition duration-200 flex items-center justify-center space-x-2 shrink-0 cursor-pointer active:scale-95"
+                        >
+                            <span>Run Diagnostic</span>
+                            <i class="fa-solid fa-arrow-right text-xs"></i>
+                        </button>
+                    </form>
+                    <div class="mt-3 flex items-center justify-center space-x-6 text-xs text-slate-400 font-medium">
+                        <span class="flex items-center space-x-1.5">
+                            <i class="fa-solid fa-check text-emerald-400"></i>
+                            <span>No installation required</span>
+                        </span>
+                        <span class="flex items-center space-x-1.5">
+                            <i class="fa-solid fa-bolt text-amber-400"></i>
+                            <span>Fast DNS analysis</span>
+                        </span>
+                        <span class="flex items-center space-x-1.5">
+                            <i class="fa-solid fa-shield-halved text-cyan-400"></i>
+                            <span>Developer friendly</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Quick suggestion pills -->
+                <div class="pt-2 flex flex-wrap justify-center items-center gap-2 text-xs text-slate-400">
+                    <span class="text-slate-400">Popular:</span>
+                    <button type="button" onclick="app.quickLookup('cloudflare.com')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">cloudflare.com</button>
+                    <button type="button" onclick="app.quickLookup('github.com')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">github.com</button>
+                    <button type="button" onclick="app.quickLookup('google.com')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">google.com</button>
+                    <button type="button" onclick="app.quickLookup('wikipedia.org')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">wikipedia.org</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State View -->
+        <div id="loadingSection" class="hidden flex-grow flex flex-col items-center justify-center py-24 px-4">
+            <div class="max-w-md w-full glass-panel p-8 rounded-2xl shadow-2xl text-center space-y-6 border border-slate-700/60">
+                <div class="relative w-20 h-20 mx-auto">
+                    <div class="absolute inset-0 rounded-full border-4 border-blue-500/20"></div>
+                    <div class="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-blue-400">
+                        <i class="fa-solid fa-radar text-2xl animate-pulse"></i>
+                    </div>
+                </div>
+                
+                <div class="space-y-2">
+                    <h3 id="loadingStatusText" class="text-lg font-bold text-white tracking-wide">Analyzing DNS configuration...</h3>
+                    <p id="loadingDomainText" class="text-sm font-mono text-blue-400"></p>
+                </div>
+
+                <!-- Progress bar -->
+                <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div id="loadingProgressBar" class="bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all duration-300 w-[10%]"></div>
+                </div>
+
+                <div class="text-xs text-slate-500 italic">Querying Cloudflare DoH endpoints concurrently...</div>
+            </div>
+        </div>
+
+        <!-- Results Dashboard View -->
+        <div id="resultsSection" class="hidden flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-8">
+            
+            <!-- Dashboard Sticky Header Bar -->
+            <div class="glass-panel p-5 rounded-2xl shadow-xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border border-slate-700/80">
+                <div class="flex items-center space-x-4">
+                    <div id="statusBadge" class="px-3.5 py-1.5 rounded-xl font-bold text-sm flex items-center space-x-2 shadow-sm">
+                        <span id="statusIndicatorDot" class="w-2.5 h-2.5 rounded-full"></span>
+                        <span id="statusIndicatorText">Checking...</span>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h2 id="resultDomainTitle" class="text-2xl font-extrabold text-white font-mono tracking-tight">example.com</h2>
+                            <button onclick="app.copyText(document.getElementById('resultDomainTitle').innerText)" class="text-slate-400 hover:text-white transition p-1" title="Copy domain">
+                                <i class="fa-regular fa-copy text-sm"></i>
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
+                            <span><i class="fa-regular fa-clock mr-1"></i> <span id="metaTimestamp">--</span></span>
+                            <span><i class="fa-solid fa-stopwatch mr-1"></i> Lookup: <span id="metaLookupTime" class="text-slate-300">--</span></span>
+                            <span><i class="fa-solid fa-database mr-1"></i> Records: <span id="metaRecordCount" class="text-slate-300">--</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Toolbar -->
+                <div class="flex flex-wrap items-center gap-2.5 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
+                    <button onclick="app.openNewSearch()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl transition flex items-center space-x-2 border border-slate-700 cursor-pointer">
+                        <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                        <span>New Lookup</span>
+                    </button>
+                    <button onclick="app.rerunDiagnostic()" class="px-3.5 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-sm font-medium rounded-xl transition flex items-center space-x-2 border border-blue-500/30 cursor-pointer">
+                        <i class="fa-solid fa-rotate text-xs"></i>
+                        <span>Rerun</span>
+                    </button>
+                    <div class="relative group">
+                        <button class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl transition flex items-center space-x-2 border border-slate-700 cursor-pointer">
+                            <i class="fa-solid fa-download text-xs text-slate-400"></i>
+                            <span>Export</span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 ml-1"></i>
+                        </button>
+                        <div class="absolute right-0 mt-1 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 hidden group-hover:block z-30">
+                            <button onclick="app.exportJSON()" class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-code text-blue-400 w-4"></i>
+                                <span>Download JSON</span>
+                            </button>
+                            <button onclick="app.exportTXT()" class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-file-lines text-emerald-400 w-4"></i>
+                                <span>Download TXT Report</span>
+                            </button>
+                            <button onclick="app.copyReport()" class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-copy text-cyan-400 w-4"></i>
+                                <span>Copy Full Report</span>
+                            </button>
+                            <button onclick="window.print()" class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 border-t border-slate-800">
+                                <i class="fa-solid fa-print text-purple-400 w-4"></i>
+                                <span>Print Report</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Overview Cards & Score -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Health Score Card -->
+                <div class="glass-panel p-6 rounded-2xl shadow-xl flex flex-col justify-between border border-slate-700/80 relative overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-200 flex items-center space-x-2">
+                            <i class="fa-solid fa-heart-pulse text-blue-400"></i>
+                            <span>DNS Health Score</span>
+                        </h3>
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 border border-slate-700">Overall Rating</span>
+                    </div>
+
+                    <div class="flex items-center justify-center my-4">
+                        <div class="relative flex items-center justify-center">
+                            <svg class="w-36 h-36 transform -rotate-90">
+                                <circle cx="72" cy="72" r="60" stroke="currentColor" stroke-width="10" class="text-slate-800 fill-transparent"></circle>
+                                <circle id="scoreCircleProgress" cx="72" cy="72" r="60" stroke="currentColor" stroke-width="10" stroke-dasharray="377" stroke-dashoffset="60" stroke-linecap="round" class="text-blue-500 fill-transparent transition-all duration-1000"></circle>
+                            </svg>
+                            <div class="absolute flex flex-col items-center justify-center text-center">
+                                <span id="healthScoreValue" class="text-4xl font-extrabold text-white tracking-tight">--</span>
+                                <span class="text-xs text-slate-400 font-medium">out of 100</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-4 border-t border-slate-800/80 text-xs">
+                        <div class="flex items-center justify-between p-2 rounded-xl bg-slate-900/50">
+                            <span class="text-slate-400">Resolution</span>
+                            <span id="scoreResolution" class="font-semibold text-emerald-400">--</span>
+                        </div>
+                        <div class="flex items-center justify-between p-2 rounded-xl bg-slate-900/50">
+                            <span class="text-slate-400">Security</span>
+                            <span id="scoreSecurity" class="font-semibold text-blue-400">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Domain & Nameservers Overview Card -->
+                <div class="glass-panel p-6 rounded-2xl shadow-xl flex flex-col justify-between border border-slate-700/80">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-200 flex items-center space-x-2">
+                            <i class="fa-solid fa-server text-cyan-400"></i>
+                            <span>Domain & Nameservers</span>
+                        </h3>
+                        <span id="nsCountBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">-- NS</span>
+                    </div>
+
+                    <div class="space-y-3.5 text-sm my-auto">
+                        <div class="flex justify-between items-center py-1.5 border-b border-slate-800">
+                            <span class="text-slate-400">Hostname</span>
+                            <span id="overviewHostname" class="font-mono text-white font-medium truncate max-w-[200px]">--</span>
+                        </div>
+                        <div class="flex justify-between items-center py-1.5 border-b border-slate-800">
+                            <span class="text-slate-400">TLD</span>
+                            <span id="overviewTLD" class="font-mono text-blue-400 font-medium">--</span>
+                        </div>
+                        <div class="flex justify-between items-center py-1.5 border-b border-slate-800">
+                            <span class="text-slate-400">Primary IP</span>
+                            <span id="overviewIP" class="font-mono text-emerald-400 font-medium text-xs bg-emerald-500/10 px-2 py-0.5 rounded">--</span>
+                        </div>
+                        <div class="flex justify-between items-center py-1.5">
+                            <span class="text-slate-400">Nameserver Diversity</span>
+                            <span id="overviewNsDiversity" class="font-medium text-slate-200">--</span>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-800 text-xs text-slate-500 italic">
+                        <span>Domain registration status is not checked by this tool.</span>
+                    </div>
+                </div>
+
+                <!-- Mail & Security Overview Card -->
+                <div class="glass-panel p-6 rounded-2xl shadow-xl flex flex-col justify-between border border-slate-700/80">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-200 flex items-center space-x-2">
+                            <i class="fa-solid fa-envelope-shield text-purple-400"></i>
+                            <span>Mail & Security Status</span>
+                        </h3>
+                        <span id="mailStatusBadge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300">--</span>
+                    </div>
+
+                    <div class="space-y-3 text-sm my-auto">
+                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                            <div class="flex items-center space-x-2.5">
+                                <i class="fa-solid fa-mail-bulk text-blue-400 w-4"></i>
+                                <span class="text-slate-300 font-medium">MX Routing</span>
+                            </div>
+                            <span id="overviewMxStatus" class="font-semibold text-xs px-2 py-0.5 rounded">--</span>
+                        </div>
+                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                            <div class="flex items-center space-x-2.5">
+                                <i class="fa-solid fa-shield text-emerald-400 w-4"></i>
+                                <span class="text-slate-300 font-medium">SPF Record</span>
+                            </div>
+                            <span id="overviewSpfStatus" class="font-semibold text-xs px-2 py-0.5 rounded">--</span>
+                        </div>
+                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                            <div class="flex items-center space-x-2.5">
+                                <i class="fa-solid fa-lock text-cyan-400 w-4"></i>
+                                <span class="text-slate-300 font-medium">DMARC Policy</span>
+                            </div>
+                            <span id="overviewDmarcStatus" class="font-semibold text-xs px-2 py-0.5 rounded">--</span>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+                        <span>CAA Protection: <strong id="overviewCaaStatus" class="text-slate-200">--</strong></span>
+                        <a href="#securitySection" class="text-blue-400 hover:underline">View details &rarr;</a>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Diagnostics & Recommendations Section -->
+            <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-800 pb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-clipboard-check text-emerald-400"></i>
+                            <span>Diagnostics & Recommendations</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Automated findings categorized by severity to help optimize your DNS setup.</p>
+                    </div>
+                    <div id="findingsCountBadge" class="flex items-center space-x-2">
+                        <!-- Dynamic badges injected here -->
+                    </div>
+                </div>
+
+                <div id="findingsListContainer" class="space-y-3">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- DNS Records Explorer Section -->
+            <div id="dnsExplorerSection" class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 space-y-6">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-table-list text-blue-400"></i>
+                            <span>DNS Record Explorer</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Comprehensive raw lookup results retrieved via Cloudflare DoH.</p>
+                    </div>
+
+                    <!-- Search and Filter controls -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-search text-xs"></i>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="dnsSearchInput" 
+                                placeholder="Search records..." 
+                                oninput="app.filterDnsRecords()"
+                                class="pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-48"
+                            >
+                        </div>
+                        <button onclick="app.copyDnsTable()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl transition flex items-center space-x-1.5 border border-slate-700">
+                            <i class="fa-regular fa-copy"></i>
+                            <span>Copy Table</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Record Type Tabs / Filters -->
+                <div id="dnsTypeTabs" class="flex flex-wrap gap-2 pb-2">
+                    <button onclick="app.setRecordFilter('ALL')" class="record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white transition shadow-sm" data-type="ALL">All Records</button>
+                    <button onclick="app.setRecordFilter('A')" class="record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" data-type="A">A</button>
+                    <button onclick="app.setRecordFilter('AAAA')" class="record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" data-type="AAAA">AAAA</button>
+                    <button onclick="app.setRecordFilter('CNAME')" class="record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" data-type="CNAME">CNAME</button>
+                    <button onclick="app.setRecordFilter('MX')" class="record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" data-type="MX">MX</button>
+                    <button onclick="app.setRecordFilter('TXT')" class="record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" data-type="TXT">TXT</button>
+                    <button onclick="app.setRecordFilter('NS')" class="record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" data-type="NS">NS</button>
+                    <button onclick="app.setRecordFilter('SOA')" class="record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" data-type="SOA">SOA</button>
+                    <button onclick="app.setRecordFilter('CAA')" class="record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" data-type="CAA">CAA</button>
+                </div>
+
+                <!-- DNS Records Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-800">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900/90 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-800">
+                                <th class="py-3 px-4">Type</th>
+                                <th class="py-3 px-4">Name / Host</th>
+                                <th class="py-3 px-4">Value / Target</th>
+                                <th class="py-3 px-4">TTL (s)</th>
+                                <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dnsTableBody" class="divide-y divide-slate-800/60 text-sm font-mono">
+                            <!-- Populated via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Detailed Diagnostic Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- A / AAAA Card -->
+                <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-network-wired text-blue-400"></i>
+                                <span>IP Address Resolution (A & AAAA)</span>
+                            </h4>
+                            <span id="ipResolutionBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold">--</span>
+                        </div>
+                        <div id="ipDetailsContainer" class="space-y-3 text-sm font-mono">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-400 font-sans">
+                        A records map domain names to IPv4 addresses. AAAA records map to IPv6.
+                    </div>
+                </div>
+
+                <!-- CNAME Analysis Card -->
+                <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-arrow-right-arrow-left text-cyan-400"></i>
+                                <span>CNAME Record Analysis</span>
+                            </h4>
+                            <span id="cnameStatusBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold">--</span>
+                        </div>
+                        <div id="cnameDetailsContainer" class="space-y-3 text-sm font-mono">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-400 font-sans">
+                        Canonical Name records alias one domain name to another. Root domains cannot be CNAMEs.
+                    </div>
+                </div>
+
+                <!-- MX / Mail Server Diagnostics -->
+                <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-envelope text-purple-400"></i>
+                                <span>Mail Server Diagnostics (MX)</span>
+                            </h4>
+                            <span id="mxCardBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold">--</span>
+                        </div>
+                        <div id="mxDetailsContainer" class="space-y-3 text-sm font-mono">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-400 font-sans">
+                        Mail Exchange records designate mail servers responsible for accepting email messages.
+                    </div>
+                </div>
+
+                <!-- Nameserver Analysis -->
+                <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-server text-emerald-400"></i>
+                                <span>Nameserver Analysis (NS)</span>
+                            </h4>
+                            <span id="nsCardBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold">--</span>
+                        </div>
+                        <div id="nsDetailsContainer" class="space-y-3 text-sm font-mono">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-400 font-sans">
+                        Authoritative nameservers store DNS records and answer queries for the zone.
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Security & Authentication Section -->
+            <div id="securitySection" class="space-y-6">
+                <div class="border-b border-slate-800 pb-2 flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-shield-halved text-blue-400"></i>
+                        <span>Email Authentication & Domain Security</span>
+                    </h3>
+                    <span class="text-xs text-slate-400 font-medium">SPF • DMARC • DKIM • CAA</span>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    <!-- SPF Checker Card -->
+                    <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="font-bold text-white flex items-center space-x-2">
+                                    <i class="fa-solid fa-shield-virus text-emerald-400"></i>
+                                    <span>SPF Security Checker</span>
+                                </h4>
+                                <span id="spfBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold">--</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mb-4">Sender Policy Framework specifies which mail servers are authorized to send email on behalf of your domain.</p>
+                            
+                            <div id="spfContentContainer" class="space-y-3 font-mono text-xs">
+                                <!-- Populated via JS -->
+                            </div>
+                        </div>
+                        <div id="spfMechanismsExplanation" class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 space-y-1">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+
+                    <!-- DMARC Checker Card -->
+                    <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="font-bold text-white flex items-center space-x-2">
+                                    <i class="fa-solid fa-fingerprint text-cyan-400"></i>
+                                    <span>DMARC Policy Checker</span>
+                                </h4>
+                                <span id="dmarcBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold">--</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mb-4">Domain-based Message Authentication protects your domain against spoofing and phishing attacks.</p>
+                            
+                            <div id="dmarcContentContainer" class="space-y-3 font-mono text-xs">
+                                <!-- Populated via JS -->
+                            </div>
+                        </div>
+                        <div id="dmarcExplanation" class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 space-y-1">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- DKIM & CAA Secondary Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    <!-- DKIM Interactive Lookup Card -->
+                    <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-bold text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-key text-amber-400"></i>
+                                <span>DKIM Record Lookup</span>
+                            </h4>
+                            <span class="text-xs text-slate-400">Selector-based check</span>
+                        </div>
+                        <p class="text-xs text-slate-400">DKIM requires a known selector (e.g. <code class="text-blue-400">default</code>, <code class="text-blue-400">google</code>, <code class="text-blue-400">selector1</code>).</p>
+
+                        <div class="flex gap-2">
+                            <input 
+                                type="text" 
+                                id="dkimSelectorInput" 
+                                value="default" 
+                                placeholder="Enter selector (e.g. default, google)"
+                                class="flex-grow px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                            <button onclick="app.checkDkimSelector()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs rounded-xl transition cursor-pointer shrink-0">
+                                Check DKIM
+                            </button>
+                        </div>
+
+                        <!-- Quick selector pills -->
+                        <div class="flex flex-wrap gap-1.5 text-[11px]">
+                            <span class="text-slate-400 self-center">Common:</span>
+                            <button onclick="app.setDkimSelector('default')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-mono">default</button>
+                            <button onclick="app.setDkimSelector('google')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-mono">google</button>
+                            <button onclick="app.setDkimSelector('selector1')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-mono">selector1</button>
+                            <button onclick="app.setDkimSelector('k1')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-mono">k1</button>
+                            <button onclick="app.setDkimSelector('mail')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-mono">mail</button>
+                        </div>
+
+                        <div id="dkimResultBox" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 font-mono text-xs space-y-2">
+                            <span class="text-slate-500 italic">Enter a selector above and click Check DKIM.</span>
+                        </div>
+                    </div>
+
+                    <!-- CAA Security Card -->
+                    <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="font-bold text-white flex items-center space-x-2">
+                                    <i class="fa-solid fa-certificate text-indigo-400"></i>
+                                    <span>CAA (Certificate Authority Authorization)</span>
+                                </h4>
+                                <span id="caaBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold">--</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mb-4">CAA records specify which Certificate Authorities are allowed to issue SSL/TLS certificates for this domain.</p>
+                            
+                            <div id="caaContentContainer" class="space-y-2 font-mono text-xs">
+                                <!-- Populated via JS -->
+                            </div>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300">
+                            <span id="caaExplanationText">Checking authorization rules...</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- SOA Collapsible Section -->
+            <div class="glass-panel p-6 rounded-2xl shadow-xl border border-slate-700/80 space-y-4">
+                <div class="flex items-center justify-between cursor-pointer" onclick="app.toggleSoaSection()">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-info text-blue-400"></i>
+                        <h4 class="font-bold text-white">Start of Authority (SOA) Record Details</h4>
+                    </div>
+                    <button class="text-slate-400 hover:text-white transition">
+                        <i id="soaChevron" class="fa-solid fa-chevron-down transition-transform"></i>
+                    </button>
+                </div>
+
+                <div id="soaContent" class="hidden pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-xs">
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                        <span class="text-slate-500 block">Primary Nameserver</span>
+                        <span id="soaMname" class="text-white font-semibold truncate block">--</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                        <span class="text-slate-500 block">Responsible Email</span>
+                        <span id="soaRname" class="text-white font-semibold truncate block">--</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                        <span class="text-slate-500 block">Serial Number</span>
+                        <span id="soaSerial" class="text-blue-400 font-semibold block">--</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                        <span class="text-slate-500 block">Refresh / Retry / Expire</span>
+                        <span id="soaTimings" class="text-slate-300 block">--</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-lg w-full rounded-2xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-history text-blue-400"></i>
+                    <h3 class="font-bold text-white">Recent Lookup History</h3>
+                </div>
+                <button onclick="app.closeHistoryModal()" class="text-slate-400 hover:text-white transition p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div id="historyListContainer" class="p-4 overflow-y-auto space-y-2.5 flex-grow divide-y divide-slate-800/40">
+                <!-- Populated via JS -->
+            </div>
+
+            <div class="p-4 border-t border-slate-800 bg-slate-900/90 flex justify-between items-center">
+                <span class="text-xs text-slate-500">Stored locally in browser (LocalStorage)</span>
+                <button onclick="app.clearHistory()" class="px-3 py-1.5 bg-red-600/10 hover:bg-red-600/20 text-red-400 hover:text-red-300 text-xs font-semibold rounded-lg transition border border-red-500/30">
+                    Clear History
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-[#0b0f19] py-8 mt-12 text-center text-xs text-slate-500 space-y-2">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-blue-600/20 flex items-center justify-center text-blue-400">
+                    <i class="fa-solid fa-network-wired text-xs"></i>
+                </div>
+                <span class="font-semibold text-slate-300">DNS & Domain Diagnostic Tool</span>
+            </div>
+            <p class="text-slate-500">
+                Built for developers, system administrators, and curious minds. Queries powered by Cloudflare DoH.
+            </p>
+            <div class="flex items-center space-x-4 text-slate-400">
+                <span>Privacy First</span>
+                <span>•</span>
+                <span>No Accounts</span>
+                <span>•</span>
+                <span>Open Architecture</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Application Logic -->
+    <script>
+        /**
+         * DNS & Domain Diagnostic Tool - Main JavaScript Application
+         * Robustly handles network failure, DNS error codes (NXDOMAIN, SERVFAIL, etc.),
+         * explicit empty states, and concurrent lookups.
+         */
+        class DNSDiagnosticApp {
+            constructor() {
+                this.currentDomain = '';
+                this.diagnosticData = null;
+                this.rawRecordsCache = {};
+                this.activeFilter = 'ALL';
+                this.searchQuery = '';
+                this.historyKey = 'dns_diagnostic_history_v2.5';
+                
+                if (!localStorage.getItem(this.historyKey)) {
+                    localStorage.setItem(this.historyKey, JSON.stringify([]));
+                }
+            }
+
+            normalizeDomain(input) {
+                if (!input) return '';
+                let clean = input.trim().toLowerCase();
+                clean = clean.replace(/^(https?:\/\/)/, '');
+                clean = clean.split('/')[0];
+                clean = clean.split(':')[0];
+                clean = clean.replace(/\.$/, '');
+                return clean;
+            }
+
+            isValidDomain(domain) {
+                const regex = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
+                return regex.test(domain);
+            }
+
+            quickLookup(domain) {
+                document.getElementById('domainInput').value = domain;
+                this.executeDiagnostic(domain);
+            }
+
+            loadExample() {
+                this.quickLookup('cloudflare.com');
+            }
+
+            resetView() {
+                document.getElementById('heroSection').classList.remove('hidden');
+                document.getElementById('loadingSection').classList.add('hidden');
+                document.getElementById('resultsSection').classList.add('hidden');
+                document.getElementById('domainInput').value = '';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            openNewSearch() {
+                this.resetView();
+                document.getElementById('domainInput').focus();
+            }
+
+            handleSearch(event) {
+                event.preventDefault();
+                const rawInput = document.getElementById('domainInput').value;
+                const domain = this.normalizeDomain(rawInput);
+
+                if (!this.isValidDomain(domain)) {
+                    this.showToast('Invalid domain format. Please enter a valid domain such as example.com.', 'error');
+                    return;
+                }
+
+                this.executeDiagnostic(domain);
+            }
+
+            /**
+             * CRITICAL REQUIREMENT: Robust DNS DoH Lookup Function
+             * Returns structured result object separating success, answers, authority, status codes, and network failures.
+             */
+            async lookupDNS(name, type) {
+                const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}`;
+                const startTime = performance.now();
+                
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'Accept': 'application/dns-json'
+                        }
+                    });
+
+                    const responseTime = Math.round(performance.now() - startTime);
+
+                    if (!response.ok) {
+                        return {
+                            success: false,
+                            status: response.status,
+                            answers: [],
+                            authority: [],
+                            error: `HTTP Error: ${response.status} ${response.statusText}`,
+                            responseTime
+                        };
+                    }
+
+                    const data = await response.json();
+                    
+                    // Cloudflare DoH JSON status codes: 0 = NOERROR, 3 = NXDOMAIN, etc.
+                    return {
+                        success: true,
+                        status: data.Status !== undefined ? data.Status : 0,
+                        answers: Array.isArray(data.Answer) ? data.Answer : [],
+                        authority: Array.isArray(data.Authority) ? data.Authority : [],
+                        error: data.Status === 3 ? 'NXDOMAIN (Domain does not exist)' : (data.Status !== 0 ? `DNS Status Code: ${data.Status}` : null),
+                        responseTime
+                    };
+
+                } catch (err) {
+                    const responseTime = Math.round(performance.now() - startTime);
+                    console.warn(`Network or parsing failure during DoH lookup for ${name} (${type}):`, err);
+                    return {
+                        success: false,
+                        status: null,
+                        answers: [],
+                        authority: [],
+                        error: err.message || 'Network request failed',
+                        responseTime
+                    };
+                }
+            }
+
+            /**
+             * Execute complete concurrent DNS diagnostic across all required record types
+             */
+            async executeDiagnostic(domain) {
+                this.currentDomain = domain;
+                
+                document.getElementById('heroSection').classList.add('hidden');
+                document.getElementById('resultsSection').classList.add('hidden');
+                document.getElementById('loadingSection').classList.remove('hidden');
+                
+                const overallStartTime = performance.now();
+                document.getElementById('loadingDomainText').innerText = `Target: ${domain}`;
+                
+                const recordTypes = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SOA', 'CAA'];
+                this.rawRecordsCache = {};
+
+                try {
+                    this.updateLoadingProgress(20, 'Querying DNS records concurrently via Cloudflare DoH...');
+
+                    // Perform concurrent lookups
+                    const promises = recordTypes.map(type => this.lookupDNS(domain, type));
+                    const results = await Promise.all(promises);
+
+                    recordTypes.forEach((type, index) => {
+                        this.rawRecordsCache[type] = results[index];
+                    });
+
+                    this.updateLoadingProgress(70, 'Querying auxiliary records (DMARC, DKIM)...');
+
+                    // Check DMARC and default DKIM concurrently
+                    const [dmarcResult, dkimResult] = await Promise.all([
+                        this.lookupDNS(`_dmarc.${domain}`, 'TXT'),
+                        this.lookupDNS(`default._domainkey.${domain}`, 'TXT')
+                    ]);
+
+                    this.rawRecordsCache['DMARC'] = dmarcResult;
+                    this.rawRecordsCache['DKIM_DEFAULT'] = dkimResult;
+
+                    const overallDuration = Math.round(performance.now() - overallStartTime);
+                    this.updateLoadingProgress(95, 'Building diagnostic report and security scoring...');
+
+                    // Build diagnostic report
+                    this.diagnosticData = this.buildDiagnosticReport(domain, this.rawRecordsCache, overallDuration);
+
+                    setTimeout(() => {
+                        document.getElementById('loadingSection').classList.add('hidden');
+                        document.getElementById('resultsSection').classList.remove('hidden');
+                        this.renderDashboard(this.diagnosticData);
+                        this.saveToHistory(domain, this.diagnosticData.healthScore, this.diagnosticData.status);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        this.showToast(`Diagnostic completed for ${domain}`, 'success');
+                    }, 400);
+
+                } catch (error) {
+                    console.error('Diagnostic execution error:', error);
+                    document.getElementById('loadingSection').classList.add('hidden');
+                    document.getElementById('heroSection').classList.remove('hidden');
+                    this.showToast('Unable to complete DNS lookup due to a network error.', 'error');
+                }
+            }
+
+            updateLoadingProgress(percent, text) {
+                document.getElementById('loadingProgressBar').style.width = `${percent}%`;
+                if (text) {
+                    document.getElementById('loadingStatusText').innerText = text;
+                }
+            }
+
+            /**
+             * Build comprehensive diagnostic report and findings
+             */
+            buildDiagnosticReport(domain, cache, durationMs) {
+                const aRes = cache['A'] || { success: false, answers: [] };
+                const aaaaRes = cache['AAAA'] || { success: false, answers: [] };
+                const cnameRes = cache['CNAME'] || { success: false, answers: [] };
+                const mxRes = cache['MX'] || { success: false, answers: [] };
+                const txtRes = cache['TXT'] || { success: false, answers: [] };
+                const nsRes = cache['NS'] || { success: false, answers: [] };
+                const soaRes = cache['SOA'] || { success: false, answers: [] };
+                const caaRes = cache['CAA'] || { success: false, answers: [] };
+                const dmarcRes = cache['DMARC'] || { success: false, answers: [] };
+
+                const aRecords = aRes.answers;
+                const aaaaRecords = aaaaRes.answers;
+                const cnameRecords = cnameRes.answers;
+                const mxRecords = mxRes.answers;
+                const txtRecords = txtRes.answers;
+                const nsRecords = nsRes.answers;
+                const soaRecords = soaRes.answers;
+                const caaRecords = caaRes.answers;
+                const dmarcRecords = dmarcRes.answers;
+
+                // Flatten all successful answers for table explorer
+                let allRecordsFlat = [];
+                Object.keys(cache).forEach(type => {
+                    if (type === 'DKIM_DEFAULT' || type === 'DMARC') return;
+                    const res = cache[type];
+                    if (res && res.success && res.answers) {
+                        res.answers.forEach(rec => {
+                            allRecordsFlat.push({
+                                type: this.getRecordTypeName(rec.type),
+                                name: rec.name,
+                                data: rec.data,
+                                ttl: rec.TTL,
+                                status: 'Valid'
+                            });
+                        });
+                    }
+                });
+
+                // Add DMARC record explicitly to flat list if present
+                if (dmarcRes.success && dmarcRes.answers) {
+                    dmarcRes.answers.forEach(rec => {
+                        allRecordsFlat.push({
+                            type: 'TXT',
+                            name: rec.name,
+                            data: rec.data,
+                            ttl: rec.TTL,
+                            status: 'Valid'
+                        });
+                    });
+                }
+
+                const parts = domain.split('.');
+                const tld = parts.length > 1 ? parts[parts.length - 1].toUpperCase() : 'UNKNOWN';
+                const primaryIp = aRecords.length > 0 ? aRecords[0].data : (aaaaRecords.length > 0 ? aaaaRecords[0].data : 'Not Resolved');
+
+                // Check network failures across essential queries
+                const anyNetworkFailure = !aRes.success || !nsRes.success;
+
+                // SPF Parser
+                let spfRecord = null;
+                let spfParsed = { mechanisms: [], isValid: false, issues: [] };
+                txtRecords.forEach(rec => {
+                    const cleanData = rec.data.replace(/^"|"$/g, '');
+                    if (cleanData.startsWith('v=spf1')) {
+                        spfRecord = cleanData;
+                    }
+                });
+
+                if (spfRecord) {
+                    spfParsed.isValid = true;
+                    const parts = spfRecord.split(/\s+/);
+                    parts.forEach(p => {
+                        if (p.startsWith('include:') || p.startsWith('ip4:') || p.startsWith('ip6:') || ['a', 'mx', '~all', '-all', '?all', '+all'].includes(p)) {
+                            spfParsed.mechanisms.push(p);
+                        }
+                    });
+                    if (spfRecord.includes('+all')) {
+                        spfParsed.issues.push('Suspicious +all mechanism allows any server to send email.');
+                    }
+                }
+
+                let spfCount = 0;
+                txtRecords.forEach(rec => {
+                    if (rec.data.replace(/^"|"$/g, '').startsWith('v=spf1')) spfCount++;
+                });
+                if (spfCount > 1) {
+                    spfParsed.issues.push('Multiple SPF records detected.');
+                }
+
+                // DMARC parser
+                let dmarcRecord = null;
+                dmarcRecords.forEach(rec => {
+                    const cleanData = rec.data.replace(/^"|"$/g, '');
+                    if (cleanData.startsWith('v=DMARC1')) {
+                        dmarcRecord = cleanData;
+                    }
+                });
+
+                // Findings & Recommendations
+                let findings = [];
+
+                if (anyNetworkFailure) {
+                    findings.push({
+                        type: 'Critical',
+                        title: 'DoH Connection Warning',
+                        explanation: 'Some DNS queries encountered network interruptions or connectivity issues.'
+                    });
+                }
+
+                if (mxRecords.length === 0) {
+                    findings.push({
+                        type: 'Critical',
+                        title: 'No MX record detected',
+                        explanation: 'This domain may not be configured to receive email. Inbound mail delivery will fail.'
+                    });
+                } else {
+                    findings.push({
+                        type: 'Passed',
+                        title: 'Mail routing configured',
+                        explanation: `Found ${mxRecords.length} MX record(s) handling inbound mail delivery.`
+                    });
+                }
+
+                if (!spfRecord) {
+                    findings.push({
+                        type: 'Warning',
+                        title: 'Missing SPF record',
+                        explanation: 'No SPF record was found. Spam filters may flag or reject emails sent from your domain.'
+                    });
+                } else if (spfParsed.issues.length > 0) {
+                    findings.push({
+                        type: 'Critical',
+                        title: 'SPF configuration issue',
+                        explanation: spfParsed.issues.join(' ')
+                    });
+                } else {
+                    findings.push({
+                        type: 'Passed',
+                        title: 'Valid SPF record published',
+                        explanation: 'SPF record successfully identified with proper authorization mechanisms.'
+                    });
+                }
+
+                if (!dmarcRecord) {
+                    findings.push({
+                        type: 'Warning',
+                        title: 'Missing DMARC record',
+                        explanation: 'No DMARC policy found at _dmarc.' + domain + '. Publishing DMARC protects against email spoofing.'
+                    });
+                } else {
+                    findings.push({
+                        type: 'Passed',
+                        title: 'DMARC record published',
+                        explanation: `Found active DMARC policy: ${dmarcRecord}`
+                    });
+                }
+
+                if (nsRecords.length === 0) {
+                    findings.push({
+                        type: 'Critical',
+                        title: 'Missing NS records',
+                        explanation: 'Authoritative nameservers could not be resolved.'
+                    });
+                } else if (nsRecords.length === 1) {
+                    findings.push({
+                        type: 'Warning',
+                        title: 'Single nameserver detected',
+                        explanation: 'Best practice is to have at least 2 or more distinct authoritative nameservers for high availability.'
+                    });
+                } else {
+                    findings.push({
+                        type: 'Passed',
+                        title: 'Nameservers configured redundantly',
+                        explanation: `Found ${nsRecords.length} authoritative nameservers.`
+                    });
+                }
+
+                if (aRecords.length === 0) {
+                    findings.push({
+                        type: 'Warning',
+                        title: 'No IPv4 (A) record found',
+                        explanation: 'Root domain has no A record. It may rely solely on CNAME or subdomain forwarding.'
+                    });
+                } else {
+                    findings.push({
+                        type: 'Passed',
+                        title: 'IPv4 address resolved',
+                        explanation: `Resolved to ${aRecords[0].data}`
+                    });
+                }
+
+                if (caaRecords.length === 0) {
+                    findings.push({
+                        type: 'Informational',
+                        title: 'No CAA record detected',
+                        explanation: 'Adding CAA records gives you control over which Certificate Authorities can issue SSL certificates for your domain.'
+                    });
+                } else {
+                    findings.push({
+                        type: 'Passed',
+                        title: 'CAA records configured',
+                        explanation: `Found ${caaRecords.length} CAA authorization rule(s).`
+                    });
+                }
+
+                // Calculate Health Score
+                let score = 100;
+                findings.forEach(f => {
+                    if (f.type === 'Critical') score -= 25;
+                    if (f.type === 'Warning') score -= 12;
+                });
+                score = Math.max(15, score);
+
+                let status = 'Healthy';
+                if (score < 60) {
+                    status = 'Critical';
+                } else if (score < 85) {
+                    status = 'Warning';
+                }
+
+                return {
+                    domain,
+                    timestamp: new Date().toLocaleString(),
+                    durationMs,
+                    recordCount: allRecordsFlat.length,
+                    score,
+                    status,
+                    tld,
+                    primaryIp,
+                    aRecords,
+                    aaaaRecords,
+                    cnameRecords,
+                    mxRecords,
+                    txtRecords,
+                    nsRecords,
+                    soaRecords: soaRecords.length > 0 ? soaRecords[0] : null,
+                    caaRecords,
+                    dmarcRecord,
+                    allRecordsFlat,
+                    spfRecord,
+                    spfParsed,
+                    findings
+                };
+            }
+
+            getRecordTypeName(typeNum) {
+                const map = { 1: 'A', 2: 'NS', 5: 'CNAME', 6: 'SOA', 15: 'MX', 16: 'TXT', 28: 'AAAA', 257: 'CAA' };
+                return map[typeNum] || String(typeNum);
+            }
+
+            renderDashboard(report) {
+                document.getElementById('resultDomainTitle').innerText = report.domain;
+                document.getElementById('metaTimestamp').innerText = report.timestamp;
+                document.getElementById('metaLookupTime').innerText = `${report.durationMs}ms`;
+                document.getElementById('metaRecordCount').innerText = report.recordCount;
+
+                const statusBadge = document.getElementById('statusBadge');
+                const dot = document.getElementById('statusIndicatorDot');
+                const text = document.getElementById('statusIndicatorText');
+
+                if (report.status === 'Healthy') {
+                    statusBadge.className = 'px-3.5 py-1.5 rounded-xl font-bold text-sm flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+                    dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+                    text.innerText = 'Healthy Configuration';
+                } else if (report.status === 'Warning') {
+                    statusBadge.className = 'px-3.5 py-1.5 rounded-xl font-bold text-sm flex items-center space-x-2 bg-amber-500/10 text-amber-400 border border-amber-500/30';
+                    dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
+                    text.innerText = 'Warnings Found';
+                } else {
+                    statusBadge.className = 'px-3.5 py-1.5 rounded-xl font-bold text-sm flex items-center space-x-2 bg-red-500/10 text-red-400 border border-red-500/30';
+                    dot.className = 'w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse';
+                    text.innerText = 'Critical Issues Detected';
+                }
+
+                document.getElementById('healthScoreValue').innerText = report.score;
+                const circle = document.getElementById('scoreCircleProgress');
+                const circumference = 377;
+                const offset = circumference - (report.score / 100) * circumference;
+                circle.style.strokeDashoffset = offset;
+                if (report.score >= 85) circle.className = 'text-emerald-400 fill-transparent transition-all duration-1000';
+                else if (report.score >= 60) circle.className = 'text-amber-400 fill-transparent transition-all duration-1000';
+                else circle.className = 'text-red-400 fill-transparent transition-all duration-1000';
+
+                document.getElementById('scoreResolution').innerText = report.aRecords.length > 0 ? 'Optimal' : 'Suboptimal';
+                document.getElementById('scoreSecurity').innerText = report.spfRecord ? 'Configured' : 'Missing SPF';
+
+                document.getElementById('nsCountBadge').innerText = `${report.nsRecords.length} NS`;
+                document.getElementById('overviewHostname').innerText = report.domain;
+                document.getElementById('overviewTLD').innerText = `.${report.tld}`;
+                document.getElementById('overviewIP').innerText = report.primaryIp;
+                document.getElementById('overviewNsDiversity').innerText = report.nsRecords.length >= 2 ? 'Good (Multi-NS)' : 'Low (Single NS)';
+
+                document.getElementById('mailStatusBadge').innerText = report.mxRecords.length > 0 ? 'Active MX' : 'No Mail Routing';
+                document.getElementById('mailStatusBadge').className = report.mxRecords.length > 0 ? 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-xs font-semibold px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20';
+
+                document.getElementById('overviewMxStatus').innerText = report.mxRecords.length > 0 ? 'Configured' : 'Missing';
+                document.getElementById('overviewMxStatus').className = report.mxRecords.length > 0 ? 'font-semibold text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400' : 'font-semibold text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400';
+
+                document.getElementById('overviewSpfStatus').innerText = report.spfRecord ? 'Published' : 'Missing';
+                document.getElementById('overviewSpfStatus').className = report.spfRecord ? 'font-semibold text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400' : 'font-semibold text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400';
+
+                document.getElementById('overviewDmarcStatus').innerText = report.dmarcRecord ? 'Published' : 'Missing';
+                document.getElementById('overviewDmarcStatus').className = report.dmarcRecord ? 'font-semibold text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400' : 'font-semibold text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400';
+
+                document.getElementById('overviewCaaStatus').innerText = report.caaRecords.length > 0 ? `${report.caaRecords.length} Rule(s)` : 'None';
+
+                this.renderFindings(report.findings);
+                this.renderDnsTable(report.allRecordsFlat);
+                this.renderIpCard(report.aRecords, report.aaaaRecords);
+                this.renderCnameCard(report.cnameRecords);
+                this.renderMxCard(report.mxRecords);
+                this.renderNsCard(report.nsRecords);
+                this.renderSecurityCards(report);
+                this.renderSoaCard(report.soaRecords);
+            }
+
+            renderFindings(findings) {
+                const container = document.getElementById('findingsListContainer');
+                container.innerHTML = '';
+
+                let passedCount = 0, warningCount = 0, criticalCount = 0, infoCount = 0;
+
+                findings.forEach(f => {
+                    if (f.type === 'Passed') passedCount++;
+                    if (f.type === 'Warning') warningCount++;
+                    if (f.type === 'Critical') criticalCount++;
+                    if (f.type === 'Informational') infoCount++;
+
+                    let icon = 'fa-check text-emerald-400';
+                    let bg = 'bg-emerald-500/10 border-emerald-500/20';
+                    let badgeBg = 'bg-emerald-500/20 text-emerald-300';
+
+                    if (f.type === 'Warning') {
+                        icon = 'fa-triangle-exclamation text-amber-400';
+                        bg = 'bg-amber-500/10 border-amber-500/20';
+                        badgeBg = 'bg-amber-500/20 text-amber-300';
+                    } else if (f.type === 'Critical') {
+                        icon = 'fa-circle-exclamation text-red-400';
+                        bg = 'bg-red-500/10 border-red-500/20';
+                        badgeBg = 'bg-red-500/20 text-red-300';
+                    } else if (f.type === 'Informational') {
+                        icon = 'fa-circle-info text-blue-400';
+                        bg = 'bg-blue-500/10 border-blue-500/20';
+                        badgeBg = 'bg-blue-500/20 text-blue-300';
+                    }
+
+                    const html = `
+                        <div class="p-4 rounded-xl border ${bg} flex items-start space-x-3.5">
+                            <div class="mt-0.5 shrink-0">
+                                <i class="fa-solid ${icon} text-base"></i>
+                            </div>
+                            <div class="flex-grow space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-bold text-white text-sm">${f.title}</h4>
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${badgeBg}">${f.type}</span>
+                                </div>
+                                <p class="text-xs text-slate-300 leading-relaxed">${f.explanation}</p>
+                            </div>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', html);
+                });
+
+                const countBadgeContainer = document.getElementById('findingsCountBadge');
+                countBadgeContainer.innerHTML = `
+                    <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold">${passedCount} Passed</span>
+                    ${warningCount > 0 ? `<span class="px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold">${warningCount} Warnings</span>` : ''}
+                    ${criticalCount > 0 ? `<span class="px-2 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-xs font-semibold">${criticalCount} Critical</span>` : ''}
+                `;
+            }
+
+            renderDnsTable(records) {
+                const tbody = document.getElementById('dnsTableBody');
+                tbody.innerHTML = '';
+
+                const filtered = records.filter(r => {
+                    const matchesType = this.activeFilter === 'ALL' || r.type === this.activeFilter;
+                    const matchesSearch = this.searchQuery === '' || 
+                        r.name.toLowerCase().includes(this.searchQuery) || 
+                        r.data.toLowerCase().includes(this.searchQuery) ||
+                        r.type.toLowerCase().includes(this.searchQuery);
+                    return matchesType && matchesSearch;
+                });
+
+                if (filtered.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-500 text-xs italic">No DNS records match the current filter or search query.</td></tr>`;
+                    return;
+                }
+
+                filtered.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-800/40 transition border-b border-slate-800/50 text-xs';
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 font-bold text-blue-400">${r.type}</td>
+                        <td class="py-3 px-4 text-slate-300 max-w-[200px] truncate" title="${r.name}">${r.name}</td>
+                        <td class="py-3 px-4 text-slate-200 max-w-[300px] truncate" title="${r.data}">${r.data}</td>
+                        <td class="py-3 px-4 text-slate-400">${r.ttl}</td>
+                        <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px]">✓ Resolved</span></td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="app.copyText('${r.data.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-white p-1 rounded transition" title="Copy value">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            setRecordFilter(type) {
+                this.activeFilter = type;
+                document.querySelectorAll('.record-tab').forEach(btn => {
+                    if (btn.dataset.type === type) {
+                        btn.className = 'record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white transition shadow-sm';
+                    } else {
+                        btn.className = 'record-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition';
+                    }
+                });
+                if (this.diagnosticData) {
+                    this.renderDnsTable(this.diagnosticData.allRecordsFlat);
+                }
+            }
+
+            filterDnsRecords() {
+                this.searchQuery = document.getElementById('dnsSearchInput').value.toLowerCase().trim();
+                if (this.diagnosticData) {
+                    this.renderDnsTable(this.diagnosticData.allRecordsFlat);
+                }
+            }
+
+            renderIpCard(aRecords, aaaaRecords) {
+                const container = document.getElementById('ipDetailsContainer');
+                const badge = document.getElementById('ipResolutionBadge');
+                container.innerHTML = '';
+
+                if (aRecords.length > 0) {
+                    badge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400';
+                    badge.innerText = 'IPv4 Configured';
+                } else {
+                    badge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-amber-500/10 text-amber-400';
+                    badge.innerText = 'No IPv4';
+                }
+
+                let html = `<div class="font-semibold text-xs text-slate-400 uppercase tracking-wider mb-1">IPv4 Records (A)</div>`;
+                if (aRecords.length === 0) {
+                    html += `<div class="text-slate-500 italic text-xs py-1">No IPv4 records found.</div>`;
+                } else {
+                    aRecords.forEach(r => {
+                        html += `<div class="flex justify-between items-center p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                            <span class="text-emerald-400 font-bold">${r.data}</span>
+                            <span class="text-slate-400 text-xs">TTL: ${r.TTL}s</span>
+                        </div>`;
+                    });
+                }
+
+                html += `<div class="font-semibold text-xs text-slate-400 uppercase tracking-wider mt-4 mb-1">IPv6 Records (AAAA)</div>`;
+                if (aaaaRecords.length === 0) {
+                    html += `<div class="text-slate-500 italic text-xs py-1 p-2 rounded-lg bg-slate-900/40 border border-slate-800/60">IPv6 record not configured (Informational)</div>`;
+                } else {
+                    aaaaRecords.forEach(r => {
+                        html += `<div class="flex justify-between items-center p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                            <span class="text-cyan-400 font-bold truncate max-w-[200px]">${r.data}</span>
+                            <span class="text-slate-400 text-xs">TTL: ${r.TTL}s</span>
+                        </div>`;
+                    });
+                }
+
+                container.innerHTML = html;
+            }
+
+            renderCnameCard(cnameRecords) {
+                const container = document.getElementById('cnameDetailsContainer');
+                const badge = document.getElementById('cnameStatusBadge');
+                container.innerHTML = '';
+
+                if (cnameRecords.length > 0) {
+                    badge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-blue-500/10 text-blue-400';
+                    badge.innerText = `${cnameRecords.length} Found`;
+                } else {
+                    badge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-slate-800 text-slate-400';
+                    badge.innerText = 'None (Direct A)';
+                }
+
+                if (cnameRecords.length === 0) {
+                    container.innerHTML = `<div class="text-slate-500 italic text-xs py-2">No CNAME records detected. The domain points directly to an IP address.</div>`;
+                    return;
+                }
+
+                let html = '';
+                cnameRecords.forEach(r => {
+                    html += `<div class="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 space-y-1">
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>Host: ${r.name}</span>
+                            <span>TTL: ${r.TTL}s</span>
+                        </div>
+                        <div class="text-cyan-400 font-bold truncate">Target: ${r.data}</div>
+                    </div>`;
+                });
+                container.innerHTML = html;
+            }
+
+            renderMxCard(mxRecords) {
+                const container = document.getElementById('mxDetailsContainer');
+                const badge = document.getElementById('mxCardBadge');
+                container.innerHTML = '';
+
+                if (mxRecords.length > 0) {
+                    badge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400';
+                    badge.innerText = `${mxRecords.length} Mail Servers`;
+                } else {
+                    badge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-red-500/10 text-red-400';
+                    badge.innerText = 'No MX Records';
+                }
+
+                if (mxRecords.length === 0) {
+                    container.innerHTML = `<div class="text-red-400/90 text-xs py-2 bg-red-500/10 p-3 rounded-lg border border-red-500/20">No MX records found. This domain cannot receive emails.</div>`;
+                    return;
+                }
+
+                let html = '';
+                mxRecords.forEach(r => {
+                    html += `<div class="flex justify-between items-center p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                        <div class="space-y-0.5 truncate mr-2">
+                            <span class="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 font-sans font-semibold mr-1.5">Pri ${r.data.split(' ')[0]}</span>
+                            <span class="text-purple-300 font-bold">${r.data.split(' ')[1] || r.data}</span>
+                        </div>
+                        <span class="text-slate-400 text-xs shrink-0">TTL: ${r.TTL}s</span>
+                    </div>`;
+                });
+                container.innerHTML = html;
+            }
+
+            renderNsCard(nsRecords) {
+                const container = document.getElementById('nsDetailsContainer');
+                const badge = document.getElementById('nsCardBadge');
+                container.innerHTML = '';
+
+                if (nsRecords.length >= 2) {
+                    badge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400';
+                    badge.innerText = `${nsRecords.length} Nameservers (Good)`;
+                } else {
+                    badge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-amber-500/10 text-amber-400';
+                    badge.innerText = `${nsRecords.length} Nameserver`;
+                }
+
+                if (nsRecords.length === 0) {
+                    container.innerHTML = `<div class="text-red-400 text-xs py-2">No nameservers found.</div>`;
+                    return;
+                }
+
+                let html = '';
+                nsRecords.forEach(r => {
+                    html += `<div class="flex justify-between items-center p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                        <span class="text-cyan-400 font-bold truncate mr-2">${r.data}</span>
+                        <span class="text-slate-400 text-xs shrink-0">TTL: ${r.TTL}s</span>
+                    </div>`;
+                });
+                container.innerHTML = html;
+            }
+
+            renderSecurityCards(report) {
+                const spfContainer = document.getElementById('spfContentContainer');
+                const spfBadge = document.getElementById('spfBadge');
+                const spfExp = document.getElementById('spfMechanismsExplanation');
+
+                if (report.spfRecord) {
+                    spfBadge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400';
+                    spfBadge.innerText = 'SPF Published';
+                    spfContainer.innerHTML = `<div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-emerald-300 break-all">${report.spfRecord}</div>`;
+                    
+                    let expHtml = `<div class="font-bold text-white mb-1">Parsed Mechanisms:</div><ul class="list-disc list-inside space-y-1">`;
+                    report.spfParsed.mechanisms.forEach(m => {
+                        let desc = 'Authorized mechanism';
+                        if (m === '-all') desc = 'Hard fail — unauthorized senders are rejected.';
+                        else if (m === '~all') desc = 'Soft fail — unauthorized senders are marked/quarantined.';
+                        else if (m === '+all') desc = 'Pass all — highly insecure!';
+                        else if (m.startsWith('include:')) desc = `Includes authorized sender policy for ${m.replace('include:', '')}`;
+                        expHtml += `<li><code class="text-blue-400">${m}</code>: ${desc}</li>`;
+                    });
+                    expHtml += `</ul>`;
+                    spfExp.innerHTML = expHtml;
+                } else {
+                    spfBadge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-amber-500/10 text-amber-400';
+                    spfBadge.innerText = 'SPF Missing';
+                    spfContainer.innerHTML = `<div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 italic">No SPF TXT record found for this domain.</div>`;
+                    spfExp.innerHTML = `<span class="text-amber-400 font-semibold">Recommendation:</span> Publish a TXT record with <code class="text-blue-400">v=spf1 include:_spf.example.com ~all</code> to prevent email spoofing.`;
+                }
+
+                const dmarcBadge = document.getElementById('dmarcBadge');
+                const dmarcContainer = document.getElementById('dmarcContentContainer');
+                const dmarcExp = document.getElementById('dmarcExplanation');
+
+                if (report.dmarcRecord) {
+                    dmarcBadge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400';
+                    dmarcBadge.innerText = 'DMARC Published';
+                    dmarcContainer.innerHTML = `<div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-cyan-300 break-all">${report.dmarcRecord}</div>`;
+                    dmarcExp.innerHTML = `<strong class="text-emerald-400">Protected:</strong> Domain DMARC authentication policy is active at <code class="text-blue-400">_dmarc.${report.domain}</code>.`;
+                } else {
+                    dmarcBadge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-amber-500/10 text-amber-400';
+                    dmarcBadge.innerText = 'DMARC Missing';
+                    dmarcContainer.innerHTML = `<div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 italic">No DMARC record found at _dmarc.${report.domain}</div>`;
+                    dmarcExp.innerHTML = `<strong class="text-amber-400">Policy Tip:</strong> Start with <code class="text-blue-400">v=DMARC1; p=none; rua=mailto:dmarc-reports@${report.domain}</code> to monitor inbound mail.`;
+                }
+
+                const caaBadge = document.getElementById('caaBadge');
+                const caaContainer = document.getElementById('caaContentContainer');
+                const caaExp = document.getElementById('caaExplanationText');
+
+                if (report.caaRecords.length > 0) {
+                    caaBadge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400';
+                    caaBadge.innerText = `${report.caaRecords.length} CAA Record(s)`;
+                    let caaHtml = '';
+                    report.caaRecords.forEach(r => {
+                        caaHtml += `<div class="p-2 rounded bg-slate-900/80 border border-slate-800 text-indigo-300">${r.data}</div>`;
+                    });
+                    caaContainer.innerHTML = caaHtml;
+                    caaExp.innerHTML = `<strong class="text-emerald-400">Protected:</strong> Only authorized Certificate Authorities can issue SSL certificates for this domain.`;
+                } else {
+                    caaBadge.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-slate-800 text-slate-400';
+                    caaBadge.innerText = 'No CAA';
+                    caaContainer.innerHTML = `<div class="p-3 rounded bg-slate-900/60 border border-slate-800 text-slate-500 italic">No CAA records detected. Any CA can issue certificates.</div>`;
+                    caaExp.innerHTML = `<strong class="text-slate-300">Optional:</strong> Publishing CAA records prevents unauthorized certificate issuance by compromised CAs.`;
+                }
+            }
+
+            renderSoaCard(soa) {
+                if (!soa) return;
+                const parts = soa.data.split(/\s+/);
+                document.getElementById('soaMname').innerText = parts[0] || 'N/A';
+                document.getElementById('soaRname').innerText = parts[1] || 'N/A';
+                document.getElementById('soaSerial').innerText = parts[2] || 'N/A';
+                document.getElementById('soaTimings').innerText = `${parts[3] || 0}s / ${parts[4] || 0}s / ${parts[5] || 0}s`;
+            }
+
+            toggleSoaSection() {
+                const content = document.getElementById('soaContent');
+                const chevron = document.getElementById('soaChevron');
+                content.classList.toggle('hidden');
+                chevron.classList.toggle('rotate-180');
+            }
+
+            async checkDkimSelector() {
+                const selector = document.getElementById('dkimSelectorInput').value.trim() || 'default';
+                const dkimDomain = `${selector}._domainkey.${this.currentDomain}`;
+                const box = document.getElementById('dkimResultBox');
+                box.innerHTML = `<div class="text-blue-400 flex items-center space-x-2"><i class="fa-solid fa-spinner animate-spin"></i><span>Querying ${dkimDomain}...</span></div>`;
+
+                const res = await this.lookupDNS(dkimDomain, 'TXT');
+                if (res.success && res.answers.length > 0) {
+                    box.innerHTML = `
+                        <div class="text-emerald-400 font-bold mb-1">✓ DKIM Record Found for selector '${selector}'</div>
+                        <div class="text-slate-300 bg-slate-950 p-2.5 rounded border border-slate-800 break-all">${res.answers[0].data}</div>
+                    `;
+                    this.showToast(`DKIM record found for selector '${selector}'`, 'success');
+                } else {
+                    box.innerHTML = `
+                        <div class="text-amber-400 font-bold mb-1">No DKIM record found for selector '${selector}'</div>
+                        <div class="text-slate-400 text-xs">Verify if your email provider uses a different selector (e.g. google, selector1, k1).</div>
+                    `;
+                }
+            }
+
+            setDkimSelector(sel) {
+                document.getElementById('dkimSelectorInput').value = sel;
+                this.checkDkimSelector();
+            }
+
+            rerunDiagnostic() {
+                if (this.currentDomain) {
+                    this.executeDiagnostic(this.currentDomain);
+                }
+            }
+
+            saveToHistory(domain, score, status) {
+                try {
+                    let history = JSON.parse(localStorage.getItem(this.historyKey)) || [];
+                    history = history.filter(h => h.domain !== domain);
+                    history.unshift({
+                        domain,
+                        date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        score,
+                        status
+                    });
+                    if (history.length > 15) history.pop();
+                    localStorage.setItem(this.historyKey, JSON.stringify(history));
+                } catch (e) {
+                    console.error('Failed to save history:', e);
+                }
+            }
+
+            openHistoryModal() {
+                const modal = document.getElementById('historyModal');
+                const container = document.getElementById('historyListContainer');
+                modal.classList.remove('hidden');
+                container.innerHTML = '';
+
+                let history = [];
+                try {
+                    history = JSON.parse(localStorage.getItem(this.historyKey)) || [];
+                } catch (e) { history = []; }
+
+                if (history.length === 0) {
+                    container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs italic">No lookup history found. Run a diagnostic to get started.</div>`;
+                    return;
+                }
+
+                history.forEach(item => {
+                    let badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                    if (item.status === 'Warning') badgeColor = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+                    if (item.status === 'Critical') badgeColor = 'bg-red-500/10 text-red-400 border-red-500/20';
+
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between p-3 rounded-xl hover:bg-slate-800/60 transition cursor-pointer';
+                    div.onclick = () => {
+                        this.closeHistoryModal();
+                        document.getElementById('domainInput').value = item.domain;
+                        this.executeDiagnostic(item.domain);
+                    };
+                    div.innerHTML = `
+                        <div class="space-y-0.5">
+                            <div class="font-mono font-bold text-white text-sm">${item.domain}</div>
+                            <div class="text-[11px] text-slate-500">${item.date}</div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="px-2 py-1 rounded-lg text-xs font-semibold border ${badgeColor}">${item.score}/100</span>
+                            <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            closeHistoryModal() {
+                document.getElementById('historyModal').classList.add('hidden');
+            }
+
+            clearHistory() {
+                localStorage.setItem(this.historyKey, JSON.stringify([]));
+                this.openHistoryModal();
+                this.showToast('Lookup history cleared.', 'success');
+            }
+
+            exportJSON() {
+                if (!this.diagnosticData) return;
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.diagnosticData, null, 2));
+                const dlAnchorElem = document.createElement('a');
+                dlAnchorElem.setAttribute("href", dataStr);
+                dlAnchorElem.setAttribute("download", `${this.currentDomain}-dns-diagnostic.json`);
+                dlAnchorElem.click();
+                this.showToast('JSON report downloaded successfully.', 'success');
+            }
+
+            exportTXT() {
+                if (!this.diagnosticData) return;
+                let txt = `========================================\n`;
+                txt += `DNS & DOMAIN DIAGNOSTIC REPORT\n`;
+                txt += `Domain: ${this.diagnosticData.domain}\n`;
+                txt += `Timestamp: ${this.diagnosticData.timestamp}\n`;
+                txt += `Health Score: ${this.diagnosticData.score} / 100 (${this.diagnosticData.status})\n`;
+                txt += `========================================\n\n`;
+
+                txt += `--- FINDINGS & RECOMMENDATIONS ---\n`;
+                this.diagnosticData.findings.forEach(f => {
+                    txt += `[${f.type}] ${f.title}\n`;
+                    txt += `-> ${f.explanation}\n\n`;
+                });
+
+                txt += `--- DNS RECORDS (${this.diagnosticData.allRecordsFlat.length}) ---\n`;
+                this.diagnosticData.allRecordsFlat.forEach(r => {
+                    txt += `${r.type.padEnd(6)} | ${r.name.padEnd(25)} | TTL: ${String(r.ttl).padEnd(6)} | ${r.data}\n`;
+                });
+
+                const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const dlAnchorElem = document.createElement('a');
+                dlAnchorElem.setAttribute("href", url);
+                dlAnchorElem.setAttribute("download", `${this.currentDomain}-dns-report.txt`);
+                dlAnchorElem.click();
+                this.showToast('TXT report downloaded successfully.', 'success');
+            }
+
+            copyReport() {
+                if (!this.diagnosticData) return;
+                let txt = `DNS Diagnostic Report for ${this.diagnosticData.domain} (${this.diagnosticData.timestamp})\n`;
+                txt += `Health Score: ${this.diagnosticData.score}/100 - Status: ${this.diagnosticData.status}\n`;
+                txt += `Records found: ${this.diagnosticData.recordCount}\n`;
+                this.copyText(txt);
+            }
+
+            copyDnsTable() {
+                if (!this.diagnosticData) return;
+                let txt = `Type\tName\tValue\tTTL\n`;
+                this.diagnosticData.allRecordsFlat.forEach(r => {
+                    txt += `${r.type}\t${r.name}\t${r.data}\t${r.ttl}\n`;
+                });
+                this.copyText(txt);
+            }
+
+            copyText(text) {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        this.showToast('Copied to clipboard!', 'success');
+                    } else {
+                        this.showToast('Failed to copy', 'error');
+                    }
+                } catch (err) {
+                    this.showToast('Failed to copy', 'error');
+                }
+                document.body.removeChild(textarea);
+            }
+
+            showToast(message, type = 'success') {
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                
+                let bg = 'bg-slate-900 border-emerald-500/50 text-emerald-300';
+                let icon = 'fa-circle-check text-emerald-400';
+                if (type === 'error') {
+                    bg = 'bg-slate-900 border-red-500/50 text-red-300';
+                    icon = 'fa-circle-exclamation text-red-400';
+                }
+
+                toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-2xl ${bg} backdrop-blur-md transform transition-all duration-300 translate-y-2 opacity-0`;
+                toast.innerHTML = `<i class="fa-solid ${icon} text-lg"></i><span class="text-xs font-semibold text-white">${message}</span>`;
+                
+                container.appendChild(toast);
+                setTimeout(() => {
+                    toast.classList.remove('translate-y-2', 'opacity-0');
+                }, 10);
+
+                setTimeout(() => {
+                    toast.classList.add('translate-y-2', 'opacity-0');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3500);
+            }
+        }
+
+        const app = new DNSDiagnosticApp();
+    </script>
+</body>
+</html>
